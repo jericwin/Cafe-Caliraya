@@ -1,0 +1,238 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --panel: rgba(17, 20, 24, 0.82);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --accent: #f2b45e;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #0b0d10;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: Inter, ui-sans-serif, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: #e6e9ee;
+  -webkit-font-smoothing: antialiased;
+}
+
+canvas {
+  touch-action: none;
+  display: block;
+}
+
+@layer components {
+  .panel {
+    @apply rounded-xl border shadow-2xl backdrop-blur-xl;
+    background: var(--panel);
+    border-color: var(--panel-border);
+  }
+  .section-title {
+    @apply mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-300;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs font-medium text-ink-100 transition hover:border-white/20 hover:bg-white/[0.09] active:scale-[0.98] disabled:opacity-40;
+  }
+  .btn-icon {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-ink-200 transition hover:border-white/10 hover:bg-white/[0.08] hover:text-white active:scale-95;
+  }
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-400/40 bg-gradient-to-b from-amber-400/25 to-amber-600/20 px-3 py-1.5 text-xs font-semibold text-amber-300 transition hover:from-amber-400/35 hover:to-amber-600/30 active:scale-[0.98];
+  }
+  .seg {
+    @apply inline-flex rounded-lg border border-white/10 bg-black/30 p-0.5;
+  }
+  .seg > button {
+    @apply rounded-md px-2.5 py-1 text-xs font-medium text-ink-300 transition hover:text-white;
+  }
+  .seg > button[data-on='true'] {
+    @apply bg-white/[0.12] text-white shadow;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-black/30 px-2 py-0.5 text-[11px] text-ink-200;
+  }
+  .toggle-row {
+    @apply flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[13px] text-ink-100 transition hover:bg-white/[0.05];
+  }
+}
+
+/* range input */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--fill, #f2b45e) var(--pct, 50%), rgba(255, 255, 255, 0.12) var(--pct, 50%));
+}
+input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+input[type='range']::-moz-range-progress {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--fill, #f2b45e);
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--fill, #f2b45e);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}
+input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--fill, #f2b45e);
+}
+input[type='range'].time-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  background: linear-gradient(90deg, #1b2440 0%, #e98a4a 3%, #9cc3e6 18%, #cfe3f2 38%, #9cc3e6 58%, #f1a456 70%, #c24f3d 74%, #3a3060 78%, #0f1426 88%, #0b0e1c 100%);
+}
+input[type='range'].time-slider::-webkit-slider-thumb {
+  margin-top: -5px;
+}
+input[type='range'].time-slider::-moz-range-track {
+  height: 6px;
+  background: linear-gradient(90deg, #1b2440 0%, #e98a4a 3%, #9cc3e6 18%, #cfe3f2 38%, #9cc3e6 58%, #f1a456 70%, #c24f3d 74%, #3a3060 78%, #0f1426 88%, #0b0e1c 100%);
+}
+input[type='range'].time-slider::-moz-range-progress {
+  background: transparent;
+}
+
+select {
+  @apply rounded-lg border border-white/10 bg-ink-800 px-2 py-1.5 text-xs text-ink-100 outline-none focus:border-amber-400/50;
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+}
+
+/* in-scene labels (drei <Html>) */
+.room-label {
+  transform: translateY(-4px);
+  white-space: nowrap;
+  text-align: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(10, 14, 20, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11px;
+  line-height: 1.25;
+  color: #f1f3f6;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  user-select: none;
+}
+.room-label b {
+  display: block;
+  font-weight: 600;
+}
+.room-label span {
+  display: block;
+  color: #f2b45e;
+  font-size: 10px;
+}
+.room-label.site {
+  background: rgba(20, 40, 30, 0.78);
+}
+.dim-label {
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(8, 20, 36, 0.85);
+  border: 1px solid rgba(159, 208, 255, 0.4);
+  color: #cfe6ff;
+  font: 600 10.5px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+  user-select: none;
+}
+.measure-label {
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(20, 14, 6, 0.88);
+  border: 1px solid rgba(242, 180, 94, 0.6);
+  color: #fff;
+  font: 600 12px/1.25 ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-align: center;
+  user-select: none;
+}
+.measure-label span {
+  display: block;
+  font-weight: 400;
+  font-size: 10px;
+  color: #f8cf8b;
+}
+.level-tag {
+  white-space: nowrap;
+  font: 600 10.5px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  color: #cfe6ff;
+  background: rgba(8, 20, 36, 0.75);
+  padding: 3px 6px;
+  border-radius: 4px;
+  border-left: 2px solid #9fd0ff;
+  user-select: none;
+}
+.axis-tag {
+  font: 600 10px/1 ui-monospace, monospace;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+}
+.axis-tag.x {
+  color: #ff8a80;
+}
+.axis-tag.y {
+  color: #a5f3a0;
+}
+.axis-tag.z {
+  color: #9fc5ff;
+}
+
+.vignette {
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-in {
+  animation: fadein 0.25s ease-out;
+}

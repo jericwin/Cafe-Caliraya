@@ -87,9 +87,9 @@ class Sheet:
     def circle(self, c, r, layer, fill=False, **kw):
         self._add(kind="circle", c=tuple(c), r=r, layer=layer, fill=fill, **kw)
 
-    def text(self, p, s, h, layer="A-ANNO-TEXT", align="C", rot=0.0, bold=False, **kw):
-        # h = cap height in paper mm
-        self._add(kind="text", p=tuple(p), s=s, h=h, layer=layer, align=align, rot=rot, bold=bold, **kw)
+    def text(self, p, s, h, layer="A-ANNO-TEXT", align="C", rot=0.0, bold=False, mask=False, **kw):
+        # h = cap height in paper mm; mask = white background behind the text (over hatching)
+        self._add(kind="text", p=tuple(p), s=s, h=h, layer=layer, align=align, rot=rot, bold=bold, mask=mask, **kw)
 
     def dim(self, p1, p2, off, text=None):
         """Aligned dimension; off (paper mm) to the left of p1->p2."""
@@ -237,7 +237,6 @@ def draw_openings(s, level):
             elif k == "void":
                 for n in (-t / 2, t / 2):
                     s.line(wall_pt(w, os_, n), wall_pt(w, oe, n), "A-OVHD", ls="hidden")
-                s.text(wall_pt(w, o["c"], 0.0), "PASS", 1.4, rot=90 if not along_x else 0)
             elif k == "door":
                 sw = o.get("swing", 1)
                 double = o.get("leaf") == "double-glass"
@@ -377,22 +376,33 @@ def arrow(s, a, b, layer="A-ANNO-SYMB", head=0.25, lw=0.25):
             (b[0] - ux * head + uy * head * 0.4, b[1] - uy * head - ux * head * 0.4)], layer, fill=True, lw=0.0)
 
 
-def room_tag(s, room, show_area=True, h=2.2, dy=0.0):
+PLAN_NAMES = {"dining": "CAFÉ DINING & LOUNGE", "bar": "COFFEE BAR", "hall": "CR LOBBY", "kitchen": "COMMERCIAL KITCHEN",
+              "storage": "DRY STORE", "cr": "ACCESSIBLE CR", "utility": "STAFF / UTILITY", "lounge2": "UPPER CAFÉ LOUNGE",
+              "group": "FUNCTION ROOM", "station": "SELF-SERVICE", "nook": "READING NOOK", "balcony": "SUNSET BALCONY", "deck": "LAKESIDE DECK"}
+
+
+def room_tag(s, room, show_area=True, h=2.2, rot=0):
     r = room["rect"]
     lx, lz = room.get("label") or ((r["x0"] + r["x1"]) / 2, (r["z0"] + r["z1"]) / 2)
     area = abs((r["x1"] - r["x0"]) * (r["z1"] - r["z0"]))
-    name = room["name"].upper()
+    name = PLAN_NAMES.get(room["id"], room["name"].upper())
     k = s.scale / 1000.0
-    s.text(P(lx, lz - dy), name, h, bold=True)
+    gap = h * 1.9 * k
+    if rot:
+        s.text(P(lx - gap / 2, lz), name, h, bold=True, rot=90, mask=True)
+        if show_area:
+            s.text(P(lx + gap / 2, lz), f"{area:.1f} m²", h * 0.8, rot=90, mask=True)
+        return
+    s.text(P(lx, lz), name, h, bold=True, mask=True)
     if show_area:
-        s.text(P(lx, lz - dy + h * 1.9 * k), f"{area:.1f} m²", h * 0.8)
+        s.text(P(lx, lz + gap), f"{area:.1f} m²", h * 0.8, mask=True)
 
 
 def level_tag(s, x, z, txt):
     p = P(x, z)
     k = s.scale / 1000.0
     s.poly([(p[0] - 1.2 * k, p[1]), (p[0] + 1.2 * k, p[1]), (p[0], p[1] - 1.8 * k)], "A-ANNO-SYMB", fill=True, lw=0)
-    s.text((p[0] + 2.0 * k, p[1] - 0.6 * k), txt, 1.6, align="L")
+    s.text((p[0] + 2.0 * k, p[1] - 0.6 * k), txt, 1.6, align="L", mask=True)
 
 
 def grid(s, xs, zs, labels_x, labels_z, extent):
@@ -455,17 +465,17 @@ def dims_building(s, level):
     north = 6  # +y edge in plan
     # chain along the north face (grid spacing) + overall
     for a, b in zip(GRID_X[:-1], GRID_X[1:]):
-        s.dim(P(a, -6.0), P(b, -6.0), off=-14)
-    s.dim(P(-8, -6.0), P(8, -6.0), off=-22)
+        s.dim(P(a, -6.0), P(b, -6.0), off=17)
+    s.dim(P(-8, -6.0), P(8, -6.0), off=24)
     # chain along the east face (grid spacing) + overall
     for a, b in zip(GRID_Z[:-1], GRID_Z[1:]):
-        s.dim(P(8.0, a), P(8.0, b), off=-14)
-    s.dim(P(8.0, -6), P(8.0, 6), off=-22)
+        s.dim(P(8.0, a), P(8.0, b), off=17)
+    s.dim(P(8.0, -6), P(8.0, 6), off=24)
     if level == 0:
-        s.dim(P(-14, 7.5), P(-8, 7.5), off=12, text="DECK 6.00")
-        s.dim(P(L["STAIR"]["x0"], -4.6), P(L["STAIR"]["x1"], -4.6), off=6)
+        s.dim(P(-14, 7.5), P(-8, 7.5), off=-8, text="DECK 6.00")
+        s.dim(P(L["STAIR"]["x0"], -4.6), P(L["STAIR"]["x1"], -4.6), off=-7, text=f"STAIR RUN {L['STAIR']['x1'] - L['STAIR']['x0']:.2f}")
     else:
-        s.dim(P(L["BALCONY"]["x0"], 6.0), P(-8, 6.0), off=10)
+        s.dim(P(L["BALCONY"]["x0"], 6.0), P(-8, 6.0), off=-12)
     _ = (k, north)
 
 
@@ -585,7 +595,7 @@ def gf_contents(s):
     # plaza / walks
     PZ = L["PLAZA"]
     s.poly([P(PZ["x0"], 6.1), P(PZ["x0"], PZ["z1"]), P(PZ["x1"], PZ["z1"]), P(PZ["x1"], 6.1)], "C-SITE", closed=False)
-    s.line(P(-14.2, 9.1), P(-8, 9.1), "C-SITE")
+    rectz(s, D["x0"] - 0.2, D["z1"], PZ["x0"], D["z1"] + 1.6, "C-SITE")
     # floor patterns (wet / service areas)
     for rid in ("kitchen", "cr", "storage", "utility"):
         r = ROOM[rid]["rect"]
@@ -612,7 +622,7 @@ def gf_contents(s):
     rectz(s, 0.75, 2.8, 2.85, 3.25, "A-FURN")  # bench
     # coffee bar
     s.poly([P(0.38, -3.95), P(0.38, 2.4), P(2.3, 2.4), P(2.3, 1.6), P(1.25, 1.6), P(1.25, -3.95)], "A-EQPM")
-    s.text(P(0.82, -1.0), "SERVICE COUNTER", 1.3, rot=90)
+    s.text(P(0.82, -1.0), "SERVICE COUNTER", 1.2, rot=90)
     rectz(s, 0.58, -2.95, 1.13, -2.17, "A-EQPM", lw=0.13)
     s.text(P(0.86, -2.56), "EM", 1.1)
     for z in (-1.75, -1.45):
@@ -686,7 +696,7 @@ def gf_contents(s):
     # overhead elements
     B = L["BALCONY"]
     rectz(s, B["x0"], B["z0"], B["x1"], B["z1"], "A-OVHD", ls="dashed")
-    s.text(P(-9.4, -6.6), "BALCONY OVER", 1.5)
+    s.text(P(-9.4, -6.6), "BALCONY OVER", 1.5, mask=True)
     rectz(s, -3.4, 6.1, 1.4, 8.2, "A-OVHD", ls="dashed")
     s.text(P(-1.0, 8.0), "CANOPY OVER", 1.4)
     R = L["ROOF"]
@@ -694,10 +704,10 @@ def gf_contents(s):
     for z in (-5.8, 0, 5.8):
         rectz(s, -10.63, z - 0.08, -10.47, z + 0.08, "A-COLS", fill=True, lw=0.0)
     # entrance & levels
-    arrow(s, P(-1.0, 11.6), P(-1.0, 6.6), head=0.35, lw=0.35)
-    s.text(P(-1.0, 12.1), "MAIN ENTRANCE", 1.8, bold=True)
-    arrow(s, P(9.9, -2.5), P(8.3, -2.5), head=0.3, lw=0.25)
-    s.text(P(10.0, -1.9), "SERVICE", 1.4, align="L")
+    arrow(s, P(-1.0, 9.9), P(-1.0, 6.6), head=0.35, lw=0.35)
+    s.text(P(-1.0, 10.15), "MAIN ENTRANCE", 1.7, bold=True, mask=True)
+    arrow(s, P(9.3, -2.5), P(8.3, -2.5), head=0.3, lw=0.25)
+    s.text(P(8.85, -3.6), "SERVICE", 1.3, rot=90, mask=True)
     level_tag(s, -1.2, 1.2, "FFL +0.15")
     level_tag(s, -11.0, 6.9, "DECK +0.15")
     level_tag(s, 4.2, 9.4, "PLAZA ±0.00")
@@ -765,7 +775,7 @@ def uf_contents(s):
     # roof over
     R = L["ROOF"]
     rectz(s, R["x0"], R["z0"], R["x1"], R["z1"], "A-OVHD", ls="dashed", lw=0.13)
-    s.text(P(R["x0"] + 0.35, 0), "ROOF EAVE OVER", 1.3, rot=90)
+    s.text(P(R["x0"] + 0.35, -3.5), "ROOF EAVE OVER", 1.3, rot=90, mask=True)
     level_tag(s, -1.2, 1.2, "FFL +3.75")
     level_tag(s, -9.4, 2.3, "BALCONY +3.73")
 
@@ -774,23 +784,17 @@ def uf_contents(s):
 
 def sheet_ground():
     s = Sheet("A-101", "GROUND FLOOR PLAN", 100, center=(-2.6, -1.2), subtitle="Café, coffee bar, kitchen, CR & service")
-    grid(s, GRID_X, GRID_Z, GRID_XL, GRID_ZL, (-16.0, -9.6, 11.4, 7.8))
+    grid(s, GRID_X, GRID_Z, GRID_XL, GRID_ZL, (-16.0, -10.0, 12.2, 12.6))
     draw_walls(s, 0)
     draw_openings(s, 0)
     gf_contents(s)
     for rid in ("dining", "bar", "hall", "kitchen", "storage", "cr", "utility", "deck"):
         r = ROOM[rid]
-        if rid == "dining":
-            r = dict(r, label=[-3.9, 0.15])
-        if rid == "deck":
-            r = dict(r, label=[-11.2, 0.15])
-        if rid == "bar":
-            r = dict(r, label=[1.78, -4.25])
-        if rid == "kitchen":
-            r = dict(r, label=[5.5, -1.65])
-        if rid == "utility":
-            r = dict(r, label=[6.75, 4.25])
-        room_tag(s, r, h=1.9 if rid in ("storage", "cr", "hall", "utility", "bar") else 2.3)
+        pos = {"dining": [-3.9, 0.15], "deck": [-11.2, 0.15], "bar": [1.76, -1.4], "kitchen": [5.5, -1.65], "utility": [6.45, 1.25],
+               "cr": [4.25, 3.45], "storage": [4.1, 1.15], "hall": [1.75, 4.6]}
+        r = dict(r, label=pos.get(rid, r.get("label")))
+        small = rid in ("storage", "cr", "hall", "utility", "bar")
+        room_tag(s, r, h=1.6 if small else 2.3, rot=90 if rid == "bar" else 0)
     dims_building(s, 0)
     north_arrow(s, DA[0] + 10, DA[3] - 14)
     scale_bar(s, DA[0] + 4, DA[1] + 6, 10, 2)
@@ -799,7 +803,7 @@ def sheet_ground():
 
 def sheet_upper():
     s = Sheet("A-102", "SECOND FLOOR PLAN", 100, center=(-2.6, -1.2), subtitle="Upper lounge, function room & sunset balcony")
-    grid(s, GRID_X, GRID_Z, GRID_XL, GRID_ZL, (-16.0, -9.6, 11.4, 7.8))
+    grid(s, GRID_X, GRID_Z, GRID_XL, GRID_ZL, (-16.0, -10.0, 12.2, 12.6))
     draw_walls(s, 1)
     draw_openings(s, 1)
     uf_contents(s)
@@ -808,7 +812,7 @@ def sheet_upper():
         if rid == "lounge2":
             r = dict(r, label=[-4.0, 2.3])
         if rid == "group":
-            r = dict(r, label=[6.3, -4.9])
+            r = dict(r, label=[6.3, -5.45])
         if rid == "station":
             r = dict(r, label=[6.3, 1.55])
         if rid == "nook":
@@ -825,7 +829,7 @@ def sheet_upper():
 def sheet_roof():
     s = Sheet("A-103", "ROOF PLAN", 100, center=(-2.6, -1.2), subtitle="Hip roof, standing-seam metal, 17° pitch")
     R = L["ROOF"]
-    grid(s, GRID_X, GRID_Z, GRID_XL, GRID_ZL, (-16.0, -9.6, 11.4, 7.8))
+    grid(s, GRID_X, GRID_Z, GRID_XL, GRID_ZL, (-16.0, -10.0, 12.2, 12.6))
     x0, x1, z0, z1 = R["x0"], R["x1"], R["z0"], R["z1"]
     d = (z1 - z0) / 2
     zc = (z0 + z1) / 2
@@ -847,6 +851,13 @@ def sheet_roof():
             else:
                 s.line(P(x, z1), P(x, z1 - reach), "A-FLOR-PATT")
         x += 0.5
+    # hip ends: seams run east-west, stopping at the hips
+    z = z0 + 0.5
+    while z < z1 - 0.2:
+        reach = min(z - z0, z1 - z)
+        s.line(P(x0, z), P(x0 + reach, z), "A-FLOR-PATT")
+        s.line(P(x1, z), P(x1 - reach, z), "A-FLOR-PATT")
+        z += 0.5
     # gutters & downpipes
     for z in (z0 - 0.11, z1 + 0.11):
         s.line(P(x0, z), P(x1, z), "A-ROOF", lw=0.18)
@@ -855,24 +866,24 @@ def sheet_roof():
     s.text(P(9.1, 6.9), "DP", 1.3)
     s.text(P(9.1, -6.9), "DP", 1.3)
     # walls below
-    for r in wall_solids(1):
-        xs, ys = [p[0] for p in r], [p[1] for p in r]
-        s.rect(min(xs), min(ys), max(xs), max(ys), "A-OVHD", ls="hidden", lw=0.09)
+    rectz(s, -8.1, -6.1, 8.1, 6.1, "A-OVHD", ls="hidden", lw=0.18)
+    rectz(s, L["BALCONY"]["x0"], L["BALCONY"]["z0"], -8.1, L["BALCONY"]["z1"], "A-OVHD", ls="hidden", lw=0.13)
+    s.text(P(4.5, 5.5), "LINE OF WALLS BELOW", 1.3, mask=True)
     # slope arrows
     for a, b in ((P(-1.0, -1.8), P(-1.0, -6.3)), (P(-1.0, 1.8), P(-1.0, 6.3)), (P(x0 + 1.2, 0.0), P(x0 + 4.5, 0.0)), (P(x1 - 1.2, 0.0), P(x1 - 4.5, 0.0))):
         arrow(s, b, a, head=0.3, lw=0.25)
-    s.text(P(-0.3, -4.0), "FALL", 1.4, align="L")
-    s.text(P(-0.3, 4.0), "FALL", 1.4, align="L")
-    s.text(P((xa + xb) / 2, zc - 0.5), "RIDGE +9.52 (approx.)", 1.5)
-    s.text(P(-1.0, -3.2), "STANDING-SEAM METAL ROOF · 17°", 1.8, bold=True)
-    s.text(P(-1.0, 3.2), "TIMBER FASCIA · VENTED TIMBER SOFFIT", 1.5)
-    s.text(P(-9.6, 4.6), "BALCONY", 1.4)
+    s.text(P(-0.3, -4.6), "FALL", 1.4, align="L", mask=True)
+    s.text(P(-0.3, 4.6), "FALL", 1.4, align="L", mask=True)
+    s.text(P((xa + xb) / 2, zc - 0.5), "RIDGE +9.52 (approx.)", 1.5, mask=True)
+    s.text(P(-1.0, -3.2), "STANDING-SEAM METAL ROOF · 17°", 1.8, bold=True, mask=True)
+    s.text(P(-1.0, 3.2), "TIMBER FASCIA · VENTED TIMBER SOFFIT", 1.5, mask=True)
+    s.text(P(-9.6, 4.6), "BALCONY BELOW", 1.4, mask=True)
     # dims
-    s.dim(P(x0, z0), P(x1, z0), off=-16, text=f"{x1 - x0:.2f}")
-    s.dim(P(x1, z0), P(x1, z1), off=-12, text=f"{z1 - z0:.2f}")
-    s.dim(P(-8, z0), P(8, z0), off=-8)
-    s.dim(P(8, z1), P(x1, z1), off=6, text=f"{x1 - 8:.2f} EAVE")
-    s.dim(P(x0, z1), P(-10.8, z1), off=6, text=f"{-10.8 - x0:.2f}")
+    s.dim(P(x0, z0), P(x1, z0), off=16, text=f"{x1 - x0:.2f}")
+    s.dim(P(x1, z0), P(x1, z1), off=16, text=f"{z1 - z0:.2f}")
+    s.dim(P(8.1, z1), P(x1, z1), off=-8, text=f"{x1 - 8.1:.2f}")
+    s.dim(P(x0, z1), P(-10.8, z1), off=-8, text=f"{-10.8 - x0:.2f}")
+    s.dim(P(-8.1, z1), P(8.1, z1), off=-8)
     level_tag(s, x1 - 2.0, z1 - 0.8, "EAVE +7.15")
     north_arrow(s, DA[0] + 10, DA[3] - 14)
     scale_bar(s, DA[0] + 4, DA[1] + 6, 10, 2)
@@ -909,23 +920,27 @@ BROAD = [(-4, -13), (4.5, -13.5), (12, -15), (-12, -16), (-3, 25), (12, 24), (-1
 
 def sheet_site():
     s = Sheet("A-001", "SITE PLAN", 500, center=(0.0, 0.0), subtitle="Building, parking, access & lakeside landscape")
-    # lake edge + water lines
-    zs = [z * 1.0 for z in range(-62, 63, 2)]
-    edge = [P(shore_x(z) + 5.0, z) for z in zs]
-    s.poly(edge, "C-WATR", closed=False, lw=0.35)
-    for zl in range(-60, 61, 4):
+    (bx0, by0), (bx1, by1) = s.p2m(DA[0], DA[1]), s.p2m(DA[2], DA[3])  # visible model window
+    zmin_v, zmax_v = -by1, -by0
+    # lake edge + water lines (clipped to the drawing area)
+    zs = [zmin_v + i * (zmax_v - zmin_v) / 80 for i in range(81)]
+    s.poly([P(shore_x(z) + 5.0, z) for z in zs], "C-WATR", closed=False, lw=0.35)
+    # keep the water hatch clear of the north arrow (top) and scale bar / note (bottom)
+    zl = math.ceil(-s.p2m(0, DA[3] - 32)[1] / 4) * 4
+    while zl <= -s.p2m(0, DA[1] + 28)[1]:
         xe = shore_x(zl) + 5.0
-        x = -96.0
+        x = bx0 + 2.0 + (abs(zl) % 8) * 0.75
         while x < xe - 3:
             s.line(P(x, zl), P(min(x + 3.0, xe - 1.5), zl), "C-WATR")
             x += 6.0
-    s.text(P(-75, 0), "CALIRAYA LAKE", 4.0, bold=True)
-    s.text(P(-75, 6), "(water edge indicative)", 2.0)
+        zl += 4
+    s.text(P(-72, 0), "CALIRAYA LAKE", 4.0, bold=True, mask=True)
+    s.text(P(-72, 5.5), "(water edge indicative)", 2.0, mask=True)
     # road
     R = L["ROAD"]
     for x in (R["x0"], R["x1"]):
-        s.line(P(x, -62), P(x, 62), "C-ROAD", lw=0.35)
-    s.line(P((R["x0"] + R["x1"]) / 2, -62), P((R["x0"] + R["x1"]) / 2, 62), "C-ROAD", ls="dashed", lw=0.18)
+        s.line(P(x, zmin_v), P(x, zmax_v), "C-ROAD", lw=0.35)
+    s.line(P((R["x0"] + R["x1"]) / 2, zmin_v), P((R["x0"] + R["x1"]) / 2, zmax_v), "C-ROAD", ls="dashed", lw=0.18)
     s.text(P((R["x0"] + R["x1"]) / 2 + 2.0, -40), "ACCESS ROAD", 2.2, rot=90, bold=True)
     # parking lot
     PK = L["PARKING"]
@@ -945,7 +960,7 @@ def sheet_site():
     s.text(P(28.6, 4.6), "4 STALLS", 1.4)
     arrow(s, P(33, -1), P(26, -1), head=1.0, lw=0.25)
     arrow(s, P(15, -2.5), P(11, -2.5), head=1.0, lw=0.25)
-    s.text(P(11.5, -5.8), "DROP-OFF / SERVICE", 1.5)
+    s.text(P(11.6, 0.6), "DROP-OFF", 1.4, rot=90, mask=True)
     # walks, plaza, deck, jetty
     PZ = L["PLAZA"]
     rectz(s, PZ["x0"], PZ["z0"], PZ["x1"], PZ["z1"], "C-SITE")
@@ -956,7 +971,7 @@ def sheet_site():
     J = L["JETTY"]
     rectz(s, J["x0"], J["z0"], J["x1"], J["z1"], "C-SITE", lw=0.25)
     rectz(s, J["x0"] - 0.5, J["z0"] - 1.8, J["x0"] + 4.5, J["z1"] + 1.8, "C-SITE", lw=0.25)
-    s.text(P((J["x0"] + J["x1"]) / 2, -3.6), "TIMBER JETTY", 1.6)
+    s.text(P((J["x0"] + J["x1"]) / 2, -4.0), "TIMBER JETTY", 1.6, mask=True)
     for i in range(20):
         x = D["x0"] - 1.0 - i * 0.78
         z = math.sin(i * 0.35) * 1.2
@@ -971,8 +986,8 @@ def sheet_site():
     for cx_, cz_, ex in ((x0, z0, x0 + d), (x0, z1, x0 + d), (x1, z0, x1 - d), (x1, z1, x1 - d)):
         s.line(P(cx_, cz_), P(ex, zc), "A-ROOF", lw=0.25)
     rectz(s, -8, -6, 8, 6, "A-OVHD", ls="dashed", lw=0.18)
-    s.text(P(-1.0, 3.2), "CALIRAYA COFFEE HOUSE", 2.0, bold=True)
-    s.text(P(-1.0, 5.4), "2 STOREYS · GFA 384 m²", 1.5)
+    s.text(P(-1.0, 1.4), "CALIRAYA COFFEE HOUSE", 1.9, bold=True, mask=True)
+    s.text(P(-1.0, 3.6), "2 STOREYS · GFA 384 m²", 1.4, mask=True)
     arrow(s, P(-1.0, 16.0), P(-1.0, 10.8), head=1.2, lw=0.35)
     s.text(P(-1.0, 17.6), "ENTRANCE", 1.8, bold=True)
     # planting
@@ -990,11 +1005,10 @@ def sheet_site():
     rectz(s, 36.2, 1.7, 36.8, 4.3, "C-SITE", fill=True, lw=0.0)
     s.text(P(35.2, 3.0), "SIGN", 1.3, rot=90)
     # dims
-    s.dim(P(PK["x0"], PK["z0"]), P(PK["x1"], PK["z0"]), off=-10)
-    s.dim(P(PK["x1"], PK["z0"]), P(PK["x1"], PK["z1"]), off=-14)
-    s.dim(P(-8, -6), P(8, -6), off=-14)
-    s.dim(P(J["x0"], J["z1"]), P(J["x1"], J["z1"]), off=8)
-    s.dim(P(D["x0"], D["z1"]), P(-8, D["z1"]), off=12)
+    s.dim(P(PK["x0"], PK["z0"]), P(PK["x1"], PK["z0"]), off=12, text=f"PARKING {PK['x1'] - PK['x0']:.2f}")
+    s.dim(P(-8, -6), P(8, -6), off=8)
+    s.dim(P(J["x0"], J["z1"]), P(J["x1"], J["z1"]), off=-8, text=f"JETTY {J['x1'] - J['x0']:.2f}")
+    s.dim(P(D["x0"], D["z1"]), P(-8, D["z1"]), off=-8)
     # area schedule (paper space)
     ax, ay = DA[2] - 66, DA[1] + 46
     rows = [("AREA SCHEDULE (preliminary)", ""), ("Ground floor (enclosed)", "192.0 m²"), ("Second floor (enclosed)", "192.0 m²"),
@@ -1035,7 +1049,9 @@ def render_pdf(sheets, path, png_dir=None):
             ax.set_ylim(0, PAPER_H)
             ax.set_aspect("equal")
             ax.axis("off")
+            clip = matplotlib.patches.Rectangle((DA[0] - 3, DA[1] - 3), DA[2] - DA[0] + 6, DA[3] - DA[1] + 6, transform=ax.transData)
             for it in s.items:
+                n_before = len(ax.lines) + len(ax.patches) + len(ax.texts)
                 conv = (lambda x, y: (x, y)) if it["space"] == "paper" else s.m2p
                 lw = it["lw"] * MM_TO_PT
                 k = it["kind"]
@@ -1060,10 +1076,14 @@ def render_pdf(sheets, path, png_dir=None):
                     p = conv(*it["p"])
                     fs = it["h"] / 0.716 * MM_TO_PT
                     ha = {"C": "center", "L": "left", "R": "right"}[it["align"]]
+                    bbox = dict(facecolor="white", edgecolor="none", pad=0.6) if it.get("mask") else None
                     ax.text(p[0], p[1], it["s"], fontsize=fs, ha=ha, va="center", rotation=it["rot"], rotation_mode="anchor",
-                            fontweight="bold" if it["bold"] else "normal", color="black")
+                            fontweight="bold" if it["bold"] else "normal", color="black", bbox=bbox, zorder=5 if bbox else 3)
                 elif k == "dim":
                     draw_dim_pdf(ax, s, it)
+                if it["space"] == "model":
+                    for art in (list(ax.lines) + list(ax.patches) + list(ax.texts))[n_before:]:
+                        art.set_clip_path(clip)
             if png_dir:
                 fig.savefig(os.path.join(png_dir, f"{s.number}.png"), dpi=110)
             pdf.savefig(fig)
@@ -1111,7 +1131,7 @@ def draw_dim_pdf(ax, s, it):
 
 # ---------------------------------------------------------------- DXF writer
 
-DXF_LT = {"solid": "CONTINUOUS", "dashed": "DASHED", "hidden": "HIDDEN", "center": "CENTER"}
+DXF_LT = {"solid": "Continuous", "dashed": "DASHED", "hidden": "DASHED2", "center": "CENTER"}
 VALID_LW = [0, 5, 9, 13, 15, 18, 20, 25, 30, 35, 40, 50, 53, 60, 70, 80, 90, 100, 106, 120, 140, 158, 200, 211]
 
 
@@ -1169,6 +1189,12 @@ def write_dxf(s, path):
             c = M(*it["c"], space)
             r = it["r"] * (k if space == "paper" else 1)
             msp.add_arc(c, r, it["a0"], it["a1"], dxfattribs=attrs)
+        elif kind == "text" and it.get("mask"):
+            p = M(*it["p"], space)
+            mt = msp.add_mtext(it["s"], dxfattribs={"layer": it["layer"], "style": "ARIAL-B" if it["bold"] else "ARIAL",
+                                                   "char_height": it["h"] * k, "rotation": it["rot"]})
+            mt.set_location(p, attachment_point={"C": 5, "L": 4, "R": 6}[it["align"]])
+            mt.set_bg_color("canvas", scale=1.3)
         elif kind == "text":
             p = M(*it["p"], space)
             align = {"C": TextEntityAlignment.MIDDLE_CENTER, "L": TextEntityAlignment.MIDDLE_LEFT, "R": TextEntityAlignment.MIDDLE_RIGHT}[it["align"]]
